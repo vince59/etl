@@ -1,11 +1,13 @@
 use csv::{ReaderBuilder, Terminator, Trim, Error as CsvError, Error};
 use crate::etl_stream::{Category, EtlError, Indicator};
+use crate::table::Table;
 
 #[derive(Debug)]
 pub struct File{
     pub name: String,
     pub path: String,
     pub category: Category,
+    pub table: Option<Table>,
 }
 #[derive(Debug)]
 pub struct CsvParam {
@@ -15,7 +17,15 @@ pub struct CsvParam {
 }
 
 impl File {
-    pub fn load(&mut self) -> Result<&mut File, EtlError> {
+    pub fn new(name: String, path: String, category: Category) -> Self {
+        Self {
+            name,
+            path,
+            category,
+            table: None,
+        }
+    }
+    pub fn load(&mut self) -> Result<Table, EtlError> {
         let full_path = format!("{}/{}", self.path, self.name);
         match &mut self.category {
             Category::Csv(csv_param) => {
@@ -29,10 +39,12 @@ impl File {
                     Err(e) => return Err(EtlError::IOError { name: full_path }),
                 };
 
-                let headers = rdr.headers();
-                match headers {
+                let csv_headers = rdr.headers();
+                let mut table;
+                match csv_headers {
                     Ok(h) => {
-                        println!("Headers: {:?}", h);
+                        let table_headers: Vec<String> = h.iter().map(|s| s.to_string()).collect();
+                        table = Table::from_headers(table_headers);
                     },
                     Err(e) => {
                         return Err(EtlError::ParsingError { name: full_path, msg: format!("CSV error: {}", e) });
@@ -42,14 +54,15 @@ impl File {
                 for rec in rdr.records() {
                     match rec {
                         Ok(rec) => {
-                           println!("{:?}", rec);
+                            let line: Vec<String> = rec.iter().map(|s| s.to_string()).collect();
+                           table.push_row_from_strings(line);
                         },
                         Err(e) => {
                             return Err(EtlError::ParsingError { name: full_path, msg: format!("CSV error: {}", e) });
                         }
                     };
                 }
-                return Ok(self)
+                Ok(table)
             },
             Category::Delimited=> Err(EtlError::NotSupported{name: "Delimited ".to_string()}),
             Category::Json =>  Err(EtlError::NotSupported{name: "Ftp".to_string()}),

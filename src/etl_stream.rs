@@ -2,6 +2,7 @@ use std::{error, fmt};
 use serde_json::{Map, Value};
 use crate::file_protocol::{CsvParam, File};
 use csv::Error as CsvError;
+use crate::table::Table;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Encoding {
@@ -63,21 +64,22 @@ impl error::Error for EtlError {}
 
 pub struct DataSource {
     protocol: Protocol,
-    data: Map<String, Value>
+    data: Option<Table>,
 }
 
 impl DataSource {
     pub fn new(protocol: Protocol) -> Self {
         Self {
             protocol,
-            data: Map::new(),
+            data:None,
         }
     }
     
     pub fn load(&mut self) -> Result<&mut DataSource, EtlError> {
         match &mut self.protocol {
             Protocol::File(f) => {
-                f.load()?;
+                self.data=Some(f.load()?);
+                println!("{:?}", self.data);
                 return Ok(self)
             },
             Protocol::Ftp => Err(EtlError::NotSupported{name: "Ftp".to_string()}),
@@ -90,12 +92,12 @@ impl DataSource {
 }
 
 pub struct Stream {
-    input : DataSource,
+    input: DataSource,
     output: DataSource,
 }
 
 impl Stream {
-    pub fn new(input: DataSource, output: DataSource) -> Self {
+    pub fn new(input: DataSource , output: DataSource ) -> Self {
         Self {
             input,
             output,

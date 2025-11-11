@@ -1,5 +1,6 @@
 mod etl_stream;
 mod file_protocol;
+mod table;
 
 use csv::Terminator;
 use etl_stream::*;
@@ -24,16 +25,14 @@ fn real_main() -> Result<(), Box<dyn std::error::Error>> {
 
     let my_category = Category::Csv(my_csv_param);
 
-    let my_file = File {
-        name: my_file_name.clone(),
-        path: my_file_path.clone(),
-        category: my_category,
-    };
+    let my_csv_file = File::new(
+        my_file_name,
+        my_file_path,
+        my_category
+    );
 
-
-
-    let my_csv_file = Protocol::File(my_file);
-    let mut my_data_source = DataSource::new(my_csv_file);
+    let my_csv_protocol = Protocol::File(my_csv_file);
+    let mut my_data_source = DataSource::new(my_csv_protocol);
 
     my_data_source.load()?;
     
